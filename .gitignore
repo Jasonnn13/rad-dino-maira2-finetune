@@ -1,0 +1,21 @@
+# environment
+.venv/
+__pycache__/
+*.pyc
+
+# data and training outputs (large, reproducible with the scripts)
+data/
+runs/
+*.pt
+*.log
+
+# secrets
+kaggle.json
+.env
+
+# editor / OS
+.vscode/
+.idea/
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,12 @@
+# torch and torchvision come from the RunPod PyTorch template
+transformers
+pydicom>=3
+opencv-python-headless
+pandas
+scikit-learn
+iterative-stratification
+kaggle
+# only needed if pydicom cannot decode compressed DICOMs
+pylibjpeg
+pylibjpeg-libjpeg
+pylibjpeg-openjpeg
