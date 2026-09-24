@@ -20,8 +20,8 @@ def main():
     # arguments
     # ==============================
     p = argparse.ArgumentParser()
-    p.add_argument("--labels", default="data/labels.csv")
-    p.add_argument("--img-dir", default="data/png")
+    p.add_argument("--labels", default="data/chexpert/labels.csv")
+    p.add_argument("--img-dir", default="data/chexpert")
     p.add_argument("--out-dir", help="default: runs/<timestamp>")
     p.add_argument("--res", type=int, default=518)
     p.add_argument("--bs", type=int, default=16)

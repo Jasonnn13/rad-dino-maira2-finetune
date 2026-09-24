@@ -1,8 +1,8 @@
-# RAD-DINO-MAIRA-2 fine-tuning on VinBigData
+# RAD-DINO-MAIRA-2 fine-tuning on CheXpert
 
 Fine-tunes [`microsoft/rad-dino-maira-2`](https://huggingface.co/microsoft/rad-dino-maira-2) (a DINOv2 ViT-B chest
-X-ray encoder) for **image-level multi-label classification** of 14 abnormalities on the Kaggle
-[VinBigData](https://www.kaggle.com/competitions/vinbigdata-chest-xray-abnormalities-detection) dataset. The
+X-ray encoder) for **image-level multi-label classification** of 13 findings on the Kaggle
+[CheXpert](https://www.kaggle.com/datasets/ashery/chexpert) dataset (the downsampled CheXpert-v1.0-small JPGs). The
 model card lists research-only use and the MSRLA license, so check both licenses (and the dataset terms) before
 using the weights for anything else.
 
@@ -12,7 +12,7 @@ The flow diagram is in [flow.excalidraw](flow.excalidraw) (open it at excalidraw
 
 | Verified                                                                                                                               | Not verified                                                                 |
 | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Download, convert and label steps on real DICOMs (MONOCHROME1/2, 12/14-bit, JPEG 2000)                                                 | Real training runs: whether full fine-tuning beats a frozen probe is unknown |
+| Download and label steps on CheXpert (labels on the full `train.csv`, download on a 200-image subset)                                    | Real training runs: whether full fine-tuning beats a frozen probe is unknown |
 | Full pipeline on CPU and on an RTX 3050 laptop GPU (4 GB), including validation, test report, checkpoints,`--pos-weight`, `--llrd` | Behavior on the GPU you will train on (RunPod)                               |
 | Kill-and-resume gives the same LR schedule as an uninterrupted run (one kill scenario, on CPU)                                         | A kill during a checkpoint write                                             |
 
@@ -27,27 +27,25 @@ pip install -r requirements.txt
 pip install torch torchvision             # not in requirements.txt (RunPod's template already has them)
 ```
 
-Downloading needs `~/.kaggle/kaggle.json` and the competition rules accepted on your Kaggle account.
+Downloading needs `~/.kaggle/kaggle.json`.
 
 ## Pipeline
 
 ```bash
-python scripts/download.py --n 2000                        # random subset; --n 0 = all 15,000 (~190 GB)
-python scripts/convert.py --src data/dicom --delete-dicom  # DICOM -> data/png, then delete the DICOM
-python scripts/make_labels.py --img-dir data/png           # data/labels.csv with train/val/test split
+python scripts/download.py --n 0                           # whole dataset as one zip (~11 GB); --n 2000 = random subset, slower per image
+python scripts/make_labels.py --n 50000 --balance          # data/chexpert/labels.csv: 50k images, patient-level train/val/test split
 python train.py --bs 16 --grad-ckpt --epochs 20            # fine-tune
 ```
 
-| Step               | What it does                                                                                                                                                                                                                                        |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `download.py`    | Fetches`train.csv` and DICOMs into `data/`. Skips images already downloaded or already converted.                                                                                                                                               |
-| `convert.py`     | Fixes MONOCHROME1 polarity, resizes the shorter side to 518 px, min-max scales to 8-bit, writes PNG. Skips existing PNGs.`--delete-dicom` removes each DICOM after its PNG is written (**irreversible**: reprocessing needs a re-download). |
-| `make_labels.py` | Boxes to 14 image-level labels (a class is positive if at least 2 of 3 radiologists marked it), then a multilabel-stratified 80/10/10 split.`--img-dir` keeps only converted images.                                                              |
-| `train.py`       | Training on PNGs only, so deleting the DICOMs does not affect it.                                                                                                                                                                                   |
+| Step               | What it does                                                                                                                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `download.py`    | Fetches `train.csv` and the selected frontal JPGs into `data/chexpert/`, one Kaggle request per image (retries on 429). Skips images already downloaded. With `--n 0` it downloads the whole dataset zip instead.   |
+| `make_labels.py` | Frontal views only, 13 findings (`No Finding` dropped), blank = 0, uncertain (-1) = 0 (`--uncertain 1` for 1), then a multilabel-stratified 80/10/10 split **by patient**. `--img-dir` keeps only downloaded images. `--n 50000` keeps 50k images in total (40k/5k/5k). `--balance` picks the train images to even out the class counts: it repeatedly adds an image positive for the class with the fewest positives so far. Val and test are random, so they keep the natural class mix. |
+| `train.py`       | Reads the JPGs directly.                                                                                                                                                                                      |
 
-Preprocessing is split in two. The DICOM work happens **once**, in `convert.py`. Resize to a square, augmentation
-(no horizontal flip), normalization and 3-channel repeat happen **per image, every epoch**, in `scripts/data.py`.
-Changing the DICOM-level steps (or `--size`) means re-running `convert.py`.
+There is no conversion step: the Kaggle JPGs are already 8-bit and downsampled (about 320 px). Resize to a square,
+augmentation (no horizontal flip), normalization and 3-channel repeat happen **per image, every epoch**, in
+`scripts/data.py`.
 
 ## `train.py` options
 
@@ -55,7 +53,7 @@ Changing the DICOM-level steps (or `--size`) means re-running `convert.py`.
 | --------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------- |
 | `--epochs`                                              | 1           | Number of epochs                                                                                     |
 | `--bs`                                                  | 16          | Batch size                                                                                           |
-| `--res`                                                 | 518         | Training resolution (PNGs are 518 px on the shorter side, so higher adds no detail)                  |
+| `--res`                                                 | 518         | Training resolution (the JPGs are about 320 px, so 518 upsamples them)                  |
 | `--lr-backbone` / `--lr-head`                         | 2e-5 / 1e-3 | Learning rates                                                                                       |
 | `--llrd`                                                | 1.0 (off)   | Layer-wise LR decay per block, e.g. 0.75                                                             |
 | `--pos-weight`                                          | off         | Weight positives by neg/pos per class (capped at 20).`val_loss` then uses the same weights.        |
@@ -101,13 +99,18 @@ RunPod speeds are not measured yet: run `python train.py --max-steps 100 --bs 16
 
 ## Dataset facts (full `train.csv`)
 
-- 15,000 images, each read by exactly 3 radiologists; 71% have no positive label.
-- Rarest classes have very few positives. In a 10% split, Atelectasis and Pneumothorax get about 6 each, so
-  their per-class results are noisy (see the CIs and `n_pos_test`).
-- Patient IDs are not provided, so patient-level leakage between splits cannot be ruled out.
+- 223,414 images of 64,540 patients; 191,027 are frontal (64,534 patients). Labels come from an automatic
+  report labeler (positive / negative / uncertain / not mentioned), not from radiologists reading the image.
+- 9% of frontal images have no positive finding among the 13 kept. Uncertain labels become negative by default,
+  a modelling choice that shifts the results; try `--uncertain 1`.
+- Rarest finding: Pleural Other (about 2,500 frontal positives), so per-class CIs are wider there.
+- The Kaggle copy has no `valid.csv`, so all splits come from `train.csv`. Splits are by patient, so a patient's
+  images (including several studies) stay on one side.
 
 ## Known limitations
 
+- The two preprocessing measurements below were made on VinBigData DICOMs at 518 px, before the switch to CheXpert.
+  CheXpert JPGs are about 320 px, so they are not verified for this data.
 - Images are resized to a square without a center crop, so the aspect ratio is distorted (H/W ranged 0.89 to
   1.38 in a 60-image sample). Measured on 10 images, the CLS embedding stays close to the model card's
   cubic + center-crop version (cosine similarity 0.970 mean, 0.889 worst); padding instead was further away (0.947).

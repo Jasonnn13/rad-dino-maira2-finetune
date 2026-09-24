@@ -31,7 +31,7 @@ class CXR(Dataset):
         return len(self.ids)
 
     def __getitem__(self, i):
-        img = cv2.imread(f"{self.img_dir}/{self.ids[i]}.png", cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread(f"{self.img_dir}/{self.ids[i]}", cv2.IMREAD_GRAYSCALE)
         img = cv2.resize(img, (self.res, self.res), interpolation=cv2.INTER_CUBIC)
         x = torch.from_numpy(img).float().div(255).unsqueeze(0)
         if self.aug:
@@ -46,11 +46,11 @@ def make_loaders(labels_csv, img_dir, res, bs, workers, pin_memory):
     """Returns (train_dl, val_dl, test_dl or None, class_names) from a labels.csv made by make_labels.py."""
     df = pd.read_csv(labels_csv)
     classes = [c for c in df.columns if c not in ("image_id", "split")]
-    missing = [i for i in df.image_id if not Path(f"{img_dir}/{i}.png").exists()]
+    missing = [i for i in df.image_id if not Path(f"{img_dir}/{i}").exists()]
     if missing:
         raise FileNotFoundError(
-            f"{len(missing)} of {len(df)} images in {labels_csv} have no PNG in {img_dir} (e.g. {missing[:3]}). "
-            f"Convert them, or rerun make_labels.py with --img-dir to keep only converted images.")
+            f"{len(missing)} of {len(df)} images in {labels_csv} have no image in {img_dir} (e.g. {missing[:3]}). "
+            f"Download them, or rerun make_labels.py with --img-dir to keep only downloaded images.")
 
     def loader(split, train):
         rows = df[df.split == split]
