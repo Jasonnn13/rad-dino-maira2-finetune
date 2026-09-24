@@ -31,6 +31,7 @@ def main():
     p.add_argument("--llrd", type=float, default=1.0, help="layer-wise LR decay per block, e.g. 0.75 (1.0 = off)")
     p.add_argument("--pos-weight", action="store_true",
                    help="weight positives by neg/pos per class (capped at 20); val_loss then uses the same weights")
+    p.add_argument("--head", choices=["linear", "mlp"], default="linear", help="mlp = 768 -> 768 -> GELU -> classes")
     p.add_argument("--drop-path", type=float, default=0.1)
     p.add_argument("--freeze-backbone", action="store_true", help="linear probe")
     p.add_argument("--grad-ckpt", action="store_true", help="trade speed for memory")
@@ -63,7 +64,7 @@ def main():
     # ==============================
     # model + optimizer
     # ==============================
-    net = Net(len(classes), a.drop_path).to(device)
+    net = Net(len(classes), a.drop_path, a.head).to(device)
     if a.grad_ckpt:
         net.backbone.gradient_checkpointing_enable()
     opt = make_optimizer(net, a.lr_head, a.lr_backbone, a.freeze_backbone, a.llrd)
@@ -106,7 +107,7 @@ def main():
         net.load_state_dict(torch.load(out_dir / "best.pt", map_location=device, weights_only=True)["model"])
         report = test_report(net, test_dl, loss_fn, device, amp, classes)
         (out_dir / "test_metrics.json").write_text(json.dumps(report, indent=2))
-        tag = "raddino_probe" if a.freeze_backbone else "raddino_ft"
+        tag = ("raddino_probe" if a.freeze_backbone else "raddino_ft") + ("_mlp" if a.head == "mlp" else "")
         table = results_table(out_dir / "per_class.csv", best["epoch"], report, tag)
         table.to_csv(out_dir / "results_table.csv", index=False)
         print(f"\nper-finding AUROC (validation = best epoch {best['epoch']}, test = {report['n_images']} images)")

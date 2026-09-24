@@ -11,10 +11,12 @@ MODEL = "microsoft/rad-dino-maira-2"
 # model
 # ==============================
 class Net(nn.Module):
-    def __init__(self, n_classes, drop_path):
+    def __init__(self, n_classes, drop_path, head="linear"):
         super().__init__()
         self.backbone = AutoModel.from_pretrained(MODEL, drop_path_rate=drop_path)
-        self.head = nn.Linear(self.backbone.config.hidden_size, n_classes)
+        d = self.backbone.config.hidden_size
+        self.head = nn.Linear(d, n_classes) if head == "linear" else nn.Sequential(
+            nn.Linear(d, d), nn.GELU(), nn.Linear(d, n_classes))
 
     def forward(self, x):
         return self.head(self.backbone(pixel_values=x).pooler_output)  # CLS token

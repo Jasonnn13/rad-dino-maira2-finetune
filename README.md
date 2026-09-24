@@ -57,6 +57,7 @@ augmentation (no horizontal flip), normalization and 3-channel repeat happen **p
 | `--lr-backbone` / `--lr-head`                         | 2e-5 / 1e-3 | Learning rates                                                                                       |
 | `--llrd`                                                | 1.0 (off)   | Layer-wise LR decay per block, e.g. 0.75                                                             |
 | `--pos-weight`                                          | off         | Weight positives by neg/pos per class (capped at 20).`val_loss` then uses the same weights.        |
+| `--head`                                                | linear      | `mlp` = 768 -> 768 -> GELU -> classes instead of one linear layer; results columns get an `_mlp` suffix |
 | `--freeze-backbone`                                     | off         | Linear probe                                                                                         |
 | `--grad-ckpt`                                           | off         | Trade speed for memory                                                                               |
 | `--max-steps`                                           | 0           | Stop each epoch after N steps (timing runs)                                                          |
