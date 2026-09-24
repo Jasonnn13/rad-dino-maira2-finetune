@@ -38,7 +38,7 @@ def main():
     p.add_argument("--project-images", type=int, default=0,
                    help="size of the full train set, to project epoch time when labels.csv is only a subset")
     p.add_argument("--workers", type=int, default=8)
-    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--seed", type=int, default=42)
     p.add_argument("--resume", help="run dir to continue from; reuses that run's config.json arguments")
     a = p.parse_args()
 

@@ -18,7 +18,7 @@ p.add_argument("--val-frac", type=float, default=0.1, help="fraction of all pati
 p.add_argument("--test-frac", type=float, default=0.1, help="fraction of all patients, evaluated once at the end")
 p.add_argument("--n", type=int, default=0, help="keep this many images in total (0 = all)")
 p.add_argument("--balance", action="store_true", help="with --n: pick the train images to even out the class counts")
-p.add_argument("--seed", type=int, default=0)
+p.add_argument("--seed", type=int, default=42)
 a = p.parse_args()
 
 # ==============================
