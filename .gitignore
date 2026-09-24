@@ -3,9 +3,8 @@
 __pycache__/
 *.pyc
 
-# data and training outputs (large, reproducible with the scripts)
+# data and checkpoints (large, reproducible with the scripts); run logs in runs/ are tracked
 data/
-runs/
 *.pt
 *.log
 
